@@ -10,7 +10,7 @@ export default function WelcomeScreen() {
         {/* title */}
         <View className="space-y-2">
             <Text style={{fontSize: wp(10)}} className="text-center font-bold text-gray-700">
-                Jarvis
+                Capt Teach
             </Text>
             <Text style={{fontSize: wp(4)}} className="text-center tracking-wider font-semibold text-gray-600">
                 The future is here, powerd by AI.
@@ -26,7 +26,7 @@ export default function WelcomeScreen() {
         </View>
         
         {/* start button */}
-        <TouchableOpacity onPress={()=> navigation.navigate('Home')} className="bg-emerald-600 mx-5 p-4 rounded-2xl">
+        <TouchableOpacity onPress={()=> navigation.navigate('Home')} className="bg-cyan-500 mx-5 p-4 rounded-2xl">
             <Text style={{fontSize: wp(6)}} className="text-center font-bold text-white">
                 Get Started
             </Text>

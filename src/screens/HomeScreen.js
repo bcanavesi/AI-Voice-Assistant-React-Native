@@ -13,7 +13,7 @@ import {widthPercentageToDP as wp, heightPercentageToDP as hp} from 'react-nativ
 import { apiCall } from '../api/openAI';
 import Features from '../components/features';
 import Tts from 'react-native-tts';
-
+import { sysprompt } from "../constants";
 
 const App = () => {
   const [result, setResult] = useState('');
@@ -69,35 +69,59 @@ const App = () => {
     setMessages([]);
   };
 
-  const fetchResponse = async ()=>{
+/*  const fetchResponse = async ()=>{
     if(result.trim().length>0){
       setLoading(true);
       let newMessages = [...messages];
-      newMessages.push({role: 'user', content: result.trim()});
-      setMessages([...newMessages]);
+      newMessages.push({role: 'system', content: sysprompt},{role: 'user', content: result.trim()});
+      setMessages([...newMessages]); */
 
-      // scroll to the bottom of the view
-      updateScrollView();
-
-      // fetching response from chatGPT with our prompt and old messages
-      apiCall(result.trim(), newMessages).then(res=>{
-        console.log('got api data');
-        setLoading(false);
-        if(res.success){
-          setMessages([...res.data]);
-          setResult('');
-          updateScrollView();
-
-          // now play the response to user
-          startTextToSpeach(res.data[res.data.length-1]);
-          
-        }else{
-          Alert.alert('Error', res.msg);
+      const fetchResponse = async () => {
+        if (result.trim().length > 0) {
+            setLoading(true);
+            
+            const userInputMessage = { role: 'user', content: result.trim() };
+            
+            // Construct the full message with system prompt and user input for API context
+            const fullMessageForApi = [{ role: 'system', content: sysprompt }, userInputMessage];
+            
+            try {
+                const res = await apiCall(result.trim(), fullMessageForApi);  // Send both system and user's input to the API call
+                setLoading(false);
+                if (res.success) {
+                    const assistantResponse = res.data.find(msg => msg.role === 'assistant');  // Get the assistant's response
+                    
+                    if (assistantResponse && assistantResponse.content.trim() !== "") {  // Ensure the assistant's response is not blank
+                        // Append only the user's input and the assistant's response to the messages array
+                        setMessages([...messages, userInputMessage, assistantResponse]);
+                    } else {
+                        setMessages([...messages, userInputMessage]);  // If no valid assistant response, just append the user's input
+                    }
+    
+                    setResult('');
+                    
+                    // scroll to the bottom of the view
+                    updateScrollView();
+                    
+                    // now play the response to user
+                    if (assistantResponse) {
+                        startTextToSpeach(assistantResponse);
+                    }
+                } else {
+                    Alert.alert('Error', res.msg);
+                }
+            } catch (error) {
+                setLoading(false);
+                console.error("Error fetching response:", error);
+                Alert.alert('Error', 'Failed to fetch response.');
+            }
         }
-        
-      })
-    }
-  }
+    };
+    
+    
+    
+    
+      
 
 
 
@@ -161,76 +185,71 @@ const App = () => {
         
         {/* features || message history */}
         {
-          messages.length>0? (
-            <View className="space-y-2 flex-1">
-              <Text className="text-gray-700 font-semibold ml-1" style={{fontSize: wp(5)}}>Assistant</Text>
-        
-              <View 
-                style={{height: hp(58)}} 
-                className="bg-neutral-200 rounded-3xl p-4">
-                  <ScrollView  
-                    ref={scrollViewRef} 
-                    bounces={false} 
-                    className="space-y-4" 
-                    showsVerticalScrollIndicator={false}
-                  >
-                    {
-                      messages.map((message, index)=>{
-                        if(message.role=='assistant'){
-                          if(message.content.includes('https')){
-                            // result is an ai image
-                            return (
-                              <View key={index} className="flex-row justify-start">
-                                <View 
-                                  className="p-2 flex rounded-2xl bg-emerald-100 rounded-tl-none">
-                                    <Image  
-                                      source={{uri: message.content}} 
-                                      className="rounded-2xl"  
-                                      resizeMode="contain" 
-                                      style={{height: wp(60), width: wp(60)}} 
-                                    />
-                                </View>
-                              </View>
-                              
-                              
-                            )
-                          }else{
-                            // chat gpt response
-                            return (
-                              <View 
-                                key={index} style={{width: wp(70)}} 
-                                className="bg-emerald-100 p-2 rounded-xl rounded-tl-none">
-                                <Text className="text-neutral-800" style={{fontSize: wp(4)}}  >
-                                  {message.content}
-                                </Text>
-                              </View>
-                            )
-                          }
-                        }else{
-                          // user input text
-                          return (
-                            <View key={index} className="flex-row justify-end">
-                              <View 
-                                style={{width: wp(70)}} 
-                                className="bg-white p-2 rounded-xl rounded-tr-none">
-                                <Text style={{fontSize: wp(4)}}  >
-                                  {message.content}
-                                </Text>
-                              </View>
-                            </View>
-                          );
-                        }
-                        
-                        
-                      })
-                    }
-                  </ScrollView>
-              </View>
-            </View>
-          ): (
-              <Features />
-          )
-        }
+  messages.length > 0 ? (
+    <View className="space-y-2 flex-1">
+      <Text className="text-gray-700 font-semibold ml-1" style={{ fontSize: wp(5) }}>Assistant</Text>
+
+      <View
+        style={{ height: hp(58) }}
+        className="bg-neutral-200 rounded-3xl p-4">
+        <ScrollView
+          ref={scrollViewRef}
+          bounces={false}
+          className="space-y-4"
+          showsVerticalScrollIndicator={false}
+        >
+          {
+            messages.map((message, index) => {
+              if (message.role === 'user') {
+                // User input text
+                return (
+                  <View key={index} className="flex-row justify-end">
+                    <View 
+                      style={{width: wp(70)}} 
+                      className="bg-white p-2 rounded-xl rounded-tr-none">
+                      <Text style={{fontSize: wp(4)}}>
+                        {message.content}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              } else if (message.content.includes('https')) {
+                // AI image response
+                return (
+                  <View key={index} className="flex-row justify-start">
+                    <View 
+                      className="p-2 flex rounded-2xl bg-emerald-100 rounded-tl-none">
+                      <Image  
+                        source={{uri: message.content}} 
+                        className="rounded-2xl"  
+                        resizeMode="contain" 
+                        style={{height: wp(60), width: wp(60)}} 
+                      />
+                    </View>
+                  </View>
+                );
+              } else {
+                // Chat GPT response
+                return (
+                  <View 
+                    key={index} 
+                    style={{width: wp(70)}} 
+                    className="bg-emerald-100 p-2 rounded-xl rounded-tl-none">
+                    <Text className="text-neutral-800" style={{fontSize: wp(4)}}>
+                      {message.content}
+                    </Text>
+                  </View>
+                );
+              }
+            })
+          }
+        </ScrollView>
+      </View>
+    </View>
+  ) : (
+      <Features />
+    )
+}
         
         
         {/* recording, clear and stop buttons */}
